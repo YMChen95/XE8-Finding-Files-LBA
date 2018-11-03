@@ -55,11 +55,13 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 	Edit1->Text = StrDirectory;
 
 	//TODO 1.跳转$boot区，提取指定位置值，转换10进制（完成）
-	//TODO 2..判断MBR,GPT ->跳转至MFT$0->MFT$5号(完成）
+	//TODO 2.判断MBR,GPT ->跳转至MFT$0->MFT$5号(完成）
 	//TODO 3.提取指定位置信息（A0属性,runlist）(完成)
 	//TODO 4.loop
-	//TODO 5.判断MFT,索引项 -> 跳转
-	//TODO 6.
+	/*TODO 5.外部索引项 5.1 Loop提取文件名(完成)
+						5.2 索引项文件名与真实文件名对比确定位置
+						5.3  跳转至索引项所对应文件MFT号*/
+	//TODO 6.判断MFT,索引项 -> 跳转
 
 	int offset_temp = 0;
 	int phy_to_logi=0; //physical, logical sector 偏移
@@ -106,7 +108,7 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 			}
 			else{
 				memset(jumpI_range,0,sizeof(jumpI_range));
- 				continue;
+				continue;
 			}
 		 }
 		 else{
@@ -119,10 +121,35 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 	memset(jumpI_range,0,sizeof(jumpI_range));
 	jumpI_range = GetRange(buffer_temp,RunListHead_offset+firstpart+1,secondpart);//从runlist得到外部索引起始簇号
 
-	offset_temp = jumpI_range[0];//外部索引的cluster #
-	Rdsec_SPTI(fileHandle,offset_temp*8,buffer_temp,1);//跳转到外部索引 ->读取
+	offset_temp = HextoDec(jumpI_range,secondpart)*8+phy_to_logi;//索引项的cluster #(physical)
+	Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,1);//跳转到外部索引 ->读取
+	memset(jumpI_range,0,sizeof(jumpI_range));
 
-    Edit2->Text = buffer_temp[0];
+	jumpI_range=GetRange(buffer_temp,24,1);
+
+	bool find_file_flag = false;
+	int indx_temp_offset = HextoDec(jumpI_range,1)+24;
+	memset(jumpI_range,0,sizeof(jumpI_range));
+	int indxLength =0, fileNameLength=0;
+
+	while (!find_file_flag) {
+		jumpI_range=GetRange(buffer_temp,indx_temp_offset+8,2);
+		indxLength = HextoDec(jumpI_range,2);
+		memset(jumpI_range,0,sizeof(jumpI_range));
+		jumpI_range=GetRange(buffer_temp,indx_temp_offset+10,2);
+		int temp =indx_temp_offset + HextoDec(jumpI_range,2)-2;
+		memset(jumpI_range,0,sizeof(jumpI_range));
+		jumpI_range=GetRange(buffer_temp,temp,1);
+		fileNameLength = HextoDec(jumpI_range,1);
+		memset(jumpI_range,0,sizeof(jumpI_range));
+
+		char *fileNameIndx = new char[fileNameLength];
+		jumpI_range=GetRange(buffer_temp,temp+2,1);
+		break;
+	}
+	Edit2->Text = jumpI_range[0];
+	Edit3->Text = fileNameLength;
+
 	//Edit3->Text = secondpart;
 	//Edit3->Text =;
 
