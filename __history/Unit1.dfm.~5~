@@ -1,0 +1,61 @@
+object Form1: TForm1
+  Left = 0
+  Top = 0
+  Caption = 'Form1'
+  ClientHeight = 272
+  ClientWidth = 499
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  PixelsPerInch = 96
+  TextHeight = 13
+  object DirectoryListBox1: TDirectoryListBox
+    Left = 8
+    Top = 32
+    Width = 217
+    Height = 191
+    ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    TabOrder = 0
+    OnChange = DirectoryListBox1Change
+  end
+  object DriveComboBox1: TDriveComboBox
+    Left = 8
+    Top = 7
+    Width = 217
+    Height = 19
+    ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    TabOrder = 1
+    OnChange = DriveComboBox1Change
+  end
+  object FileListBox1: TFileListBox
+    Left = 231
+    Top = 32
+    Width = 258
+    Height = 191
+    ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    ItemHeight = 13
+    TabOrder = 2
+  end
+  object Button1: TButton
+    Left = 192
+    Top = 229
+    Width = 89
+    Height = 35
+    Caption = 'Get Start Sectors'
+    TabOrder = 3
+    OnClick = Button1Click
+  end
+  object Edit1: TEdit
+    Left = 256
+    Top = 5
+    Width = 121
+    Height = 21
+    ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    ReadOnly = True
+    TabOrder = 4
+  end
+end
