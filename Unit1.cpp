@@ -59,8 +59,8 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 	//TODO 3.提取指定位置信息（A0属性,runlist）(完成)
 	//TODO 4.loop
 	/*TODO 5.外部索引项 5.1 Loop提取文件名(完成)
-						5.2 索引项文件名与真实文件名对比确定位置
-						5.3  跳转至索引项所对应文件MFT号*/
+						5.2 索引项文件名与真实文件名对比确定位置 (完成)
+						5.3  跳转至索引项所对应文件MFT号（完成）*/
 	//TODO 6.判断MFT,索引项 -> 跳转
 
 	int offset_temp = 0;
@@ -80,76 +80,98 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 		Edit2->Text = offset_temp;
 		Edit3->Text = "0";
 	}
+	else{
+		//跳转$MFT 0号
+		Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,1);
+		jumpI_range = GetRange(buffer_temp,48,8);//取MFT$0起始簇号 ->读取
+		int MFTZero_Lba=8*HextoDec(jumpI_range,8)+phy_to_logi;
+		offset_temp = MFTZero_Lba+5*2; //直接加5个LBA到5号
+		memset(buffer_temp,0,sizeof(buffer_temp));
+		memset(jumpI_range,0,sizeof(jumpI_range));
+		Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,1);//跳转到$MFT5号 ->读取
 
-	//跳转$MFT 0号
-	Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,1);
-	jumpI_range = GetRange(buffer_temp,48,8);//取MFT$0起始簇号 ->读取
-	offset_temp = 8*HextoDec(jumpI_range,8)+phy_to_logi+5*2; //直接加5个LBA到5号
-	memset(buffer_temp,0,sizeof(buffer_temp));
-	memset(jumpI_range,0,sizeof(jumpI_range));
-	Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,1);//跳转到$MFT5号 ->读取
+		//找A0 runlist属性
+		int RunListHead_offset = 0;
+		for (int i = 55; i < 256; i++) {
+			 jumpI_range = GetRange(buffer_temp,i*4,4);
+			 if(HextoDec(jumpI_range,4)==0){
+				memset(jumpI_range,0,sizeof(jumpI_range));
+				jumpI_range = GetRange(buffer_temp,(i+1)*4,4);
+				if(HextoDec(jumpI_range,4)==160){
+					memset(jumpI_range,0,sizeof(jumpI_range));
+					jumpI_range = GetRange(buffer_temp,(i+1)*4+32,1);
+					int RunList_offset = HextoDec(jumpI_range,1);
+					memset(jumpI_range,0,sizeof(jumpI_range));
+					RunListHead_offset =  (i+1)*4+RunList_offset;
+					jumpI_range = GetRange(buffer_temp,RunListHead_offset,1);
+					//Edit3->Text = "find";
+					break;
+				}
+				else{
+					memset(jumpI_range,0,sizeof(jumpI_range));
+					continue;
+				}
+			 }
+			 else{
+				continue;
+			 }
+		}
 
-	//找A0 runlist属性
-	int RunListHead_offset = 0;
-	for (int i = 55; i < 256; i++) {
-		 jumpI_range = GetRange(buffer_temp,i*4,4);
-		 if(HextoDec(jumpI_range,4)==0){
+		int firstpart = jumpI_range[0] >> 4;
+		int secondpart = jumpI_range[0]-firstpart*16;
+		memset(jumpI_range,0,sizeof(jumpI_range));
+		jumpI_range = GetRange(buffer_temp,RunListHead_offset+firstpart+1,secondpart);//从runlist得到外部索引起始簇号
+
+		offset_temp = HextoDec(jumpI_range,secondpart)*8+phy_to_logi;//索引项的cluster #(physical)
+		Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,4);//跳转到外部索引 ->读取
+		memset(jumpI_range,0,sizeof(jumpI_range));
+
+		jumpI_range=GetRange(buffer_temp,24,4);
+
+		bool find_file_flag = false;
+		int indx_temp_offset = HextoDec(jumpI_range,4)+24;//第一个索引项的偏移0x18
+		memset(jumpI_range,0,sizeof(jumpI_range));
+
+		while (!find_file_flag) {
+			int indxLength =0, fileNameLength=0;
+			jumpI_range=GetRange(buffer_temp,indx_temp_offset+8,2);// 索引项长度的偏移0x08
+			indxLength = HextoDec(jumpI_range,2);
 			memset(jumpI_range,0,sizeof(jumpI_range));
-			jumpI_range = GetRange(buffer_temp,(i+1)*4,4);
-			if(HextoDec(jumpI_range,4)==160){
+
+			int temp =indx_temp_offset + 82;
+			jumpI_range=GetRange(buffer_temp,temp-2,1);
+			fileNameLength = HextoDec(jumpI_range,1);
+			memset(jumpI_range,0,sizeof(jumpI_range));
+
+			char *fileNameIndx = new char[fileNameLength];
+			jumpI_range=GetRangeForName(buffer_temp,temp,2*fileNameLength);
+			int i = 0;
+			int j =0;
+			for (i = 0; i < 2*fileNameLength; i++) {
+				if(jumpI_range[i]==0){
+					continue;
+				}
+				else{
+				   fileNameIndx[j]=  jumpI_range[i];
+				   j++;
+				}
+			}
+            //找到索引项对应
+			if (strcmp(fileNameIndx,fileName[1])==0) {
 				memset(jumpI_range,0,sizeof(jumpI_range));
-				jumpI_range = GetRange(buffer_temp,(i+1)*4+32,1);
-				int RunList_offset = HextoDec(jumpI_range,1);
-				memset(jumpI_range,0,sizeof(jumpI_range));
-				RunListHead_offset =  (i+1)*4+RunList_offset;
-				jumpI_range = GetRange(buffer_temp,RunListHead_offset,1);
-				//Edit3->Text = "find";
-				break;
+				jumpI_range=GetRange(buffer_temp,indx_temp_offset,4);
+				find_file_flag=true;
+				offset_temp = MFTZero_Lba + HextoDec(jumpI_range,4)*2;
+				Edit2->Text =  offset_temp;
+				Edit3->Text =  offset_temp-phy_to_logi;
 			}
 			else{
-				memset(jumpI_range,0,sizeof(jumpI_range));
-				continue;
+			   indx_temp_offset+= indxLength;
+			   memset(jumpI_range,0,sizeof(jumpI_range));
 			}
-		 }
-		 else{
-			continue;
-		 }
+
+		}
 	}
-
-	int firstpart = jumpI_range[0] >> 4;
-	int secondpart = jumpI_range[0]-firstpart*16;
-	memset(jumpI_range,0,sizeof(jumpI_range));
-	jumpI_range = GetRange(buffer_temp,RunListHead_offset+firstpart+1,secondpart);//从runlist得到外部索引起始簇号
-
-	offset_temp = HextoDec(jumpI_range,secondpart)*8+phy_to_logi;//索引项的cluster #(physical)
-	Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,1);//跳转到外部索引 ->读取
-	memset(jumpI_range,0,sizeof(jumpI_range));
-
-	jumpI_range=GetRange(buffer_temp,24,1);
-
-	bool find_file_flag = false;
-	int indx_temp_offset = HextoDec(jumpI_range,1)+24;
-	memset(jumpI_range,0,sizeof(jumpI_range));
-	int indxLength =0, fileNameLength=0;
-
-	while (!find_file_flag) {
-		jumpI_range=GetRange(buffer_temp,indx_temp_offset+8,2);
-		indxLength = HextoDec(jumpI_range,2);
-		memset(jumpI_range,0,sizeof(jumpI_range));
-		jumpI_range=GetRange(buffer_temp,indx_temp_offset+10,2);
-		int temp =indx_temp_offset + HextoDec(jumpI_range,2)-2;
-		memset(jumpI_range,0,sizeof(jumpI_range));
-		jumpI_range=GetRange(buffer_temp,temp,1);
-		fileNameLength = HextoDec(jumpI_range,1);
-		memset(jumpI_range,0,sizeof(jumpI_range));
-
-		char *fileNameIndx = new char[fileNameLength];
-		jumpI_range=GetRange(buffer_temp,temp+2,1);
-		break;
-	}
-	Edit2->Text = jumpI_range[0];
-	Edit3->Text = fileNameLength;
-
 	//Edit3->Text = secondpart;
 	//Edit3->Text =;
 
@@ -261,6 +283,15 @@ unsigned char* TForm1::GetRange(unsigned char* p, int a, int b)
 	return temp_p;
 }
 
+unsigned char* TForm1::GetRangeForName(unsigned char* p, int a, int b)
+{
+	unsigned char*temp_p = new unsigned char[b+1];
+
+	for (int i = 0; i < b; i++) {
+		temp_p[i]=p[a+i];
+	}
+	return temp_p;
+}
 
 unsigned long TForm1::HextoDec(const unsigned char *hex, int length)
 {
@@ -272,4 +303,6 @@ unsigned long TForm1::HextoDec(const unsigned char *hex, int length)
 	}
 	return rslt;
 }
+
+
 

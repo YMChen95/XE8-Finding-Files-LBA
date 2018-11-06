@@ -38,6 +38,7 @@ public:		// User declarations
 	int calc_slash(const char *p, const char chr);
 	unsigned char* GetRange(unsigned char* p, int a, int b);
 	unsigned long HextoDec(const unsigned char *hex, int length);
+	unsigned char* GetRangeForName(unsigned char* p, int a, int b);
 };
 //---------------------------------------------------------------------------
 extern PACKAGE TForm1 *Form1;
