@@ -259,7 +259,7 @@ BOOL TForm1::Rdsec_SPTI(HANDLE DeviceHandle,int LBA,unsigned char* wbuf,int Sec_
     sptdwb.sptd.Cdb[7]=0x00;    // Sector Count
     sptdwb.sptd.Cdb[8]=Sec_Count;    // Sector Count
     length = sizeof(SCSI_PASS_THROUGH_DIRECT_WITH_BUFFER);
-    status = DeviceIoControl(DeviceHandle,
+	status = DeviceIoControl(DeviceHandle,
 							 IOCTL_SCSI_PASS_THROUGH_DIRECT,
                              &sptdwb,
 							 length,
@@ -280,7 +280,7 @@ int TForm1::calc_slash(const char *p, const char chr)
 		++p;//使用指针指向每个字符所在的内存位地址
 	}
 	return count;
-}
+}
 
 unsigned char* TForm1::GetRange(unsigned char* p, int a, int b)
 {
@@ -331,8 +331,8 @@ int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char f
 			int Azero_offset =  i*4+HextoDec(jumpI_range,4);
 			memset(jumpI_range,0,sizeof(jumpI_range));
 			jumpI_range = GetRange(buffer_temp,Azero_offset,4);
-			if(HextoDec(jumpI_range,4)==160){
-			   Azero_exsit = true;	
+			if(HextoDec(jumpI_range,4)==160){//A0属性
+			   Azero_exsit = true;
 			}
 			//Edit2->Text = jumpI_range[3];
 			break;
@@ -344,7 +344,7 @@ int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char f
 			int secondpart = jumpI_range[0]-firstpart*16;
 			memset(jumpI_range,0,sizeof(jumpI_range));
 			jumpI_range = GetRange(buffer_temp,i+40+firstpart+1,secondpart);
-			
+
 			break;
 		}
 		else{
