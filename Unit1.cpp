@@ -36,10 +36,13 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 	//TODO: 计算\的个数(完成),分割文件名（完成）
 	int numOfSlash =0;
 	TCHAR StrDrive=this->DriveComboBox1->Drive;
-	AnsiString StrDirectory = this->DirectoryListBox1 ->Directory  ;
-	char ListDirectory[20];
-	char fileName[20][20]={""}; //指定分隔后子字符串存储的位置，这里定义二维字符串数组
+	AnsiString StrDirectory = this->FileListBox1->FileName;
+	char ListDirectory[64];
+	char fileName[64][64]={""}; //指定分隔后子字符串存储的位置，这里定义二维字符串数组
 
+	if (StrDirectory == "") {
+		StrDirectory = this->FileListBox1->Directory;
+	}
 	strcpy(ListDirectory, StrDirectory.c_str());
 	numOfSlash = calc_slash(ListDirectory,'\\');
 
@@ -54,14 +57,16 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 	}
 	Edit1->Text = StrDirectory;
 
-	//TODO 1.跳转$boot区，提取指定位置值，转换10进制（完成）
-	//TODO 2.判断MBR,GPT ->跳转至MFT$0->MFT$5号(完成）
-	//TODO 3.提取指定位置信息（A0属性,runlist）(完成)
-	//TODO 4.loop
-	/*TODO 5.外部索引项 5.1 Loop提取文件名(完成)
+	/*
+	1.跳转$boot区，Function:提取指定位置 & HextoInt（完成）
+	2.判断MBR,GPT ->跳转至MFT$0->MFT$5号(完成）
+	3.提取指定位置信息（A0属性,runlist）(完成)
+	TODO:4.loop
+	5.外部索引项(INDX) 	5.1 Loop提取文件名(完成)
 						5.2 索引项文件名与真实文件名对比确定位置 (完成)
-						5.3  跳转至索引项所对应文件MFT号（完成）*/
-	//TODO 6.判断MFT,索引项 -> 跳转
+						5.3  跳转至索引项所对应文件MFT号（完成）
+	TODO:6. 判断80,90w/oA0, 90w/A0, 相对应
+	Runlist->result, file name->mft#, RunList->Indx*/
 
 	int offset_temp = 0;
 	int phy_to_logi=0; //physical, logical sector 偏移
@@ -88,7 +93,7 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 		offset_temp = MFTZero_Lba+5*2; //直接加5个LBA到5号
 		memset(buffer_temp,0,sizeof(buffer_temp));
 		memset(jumpI_range,0,sizeof(jumpI_range));
-		Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,1);//跳转到$MFT5号 ->读取
+		Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,4);//跳转到$MFT5号 ->读取
 
 		//找A0 runlist属性
 		int RunListHead_offset = 0;
@@ -104,7 +109,6 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 					memset(jumpI_range,0,sizeof(jumpI_range));
 					RunListHead_offset =  (i+1)*4+RunList_offset;
 					jumpI_range = GetRange(buffer_temp,RunListHead_offset,1);
-					//Edit3->Text = "find";
 					break;
 				}
 				else{
@@ -162,8 +166,13 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 				jumpI_range=GetRange(buffer_temp,indx_temp_offset,4);
 				find_file_flag=true;
 				offset_temp = MFTZero_Lba + HextoDec(jumpI_range,4)*2;
-				Edit2->Text =  offset_temp;
-				Edit3->Text =  offset_temp-phy_to_logi;
+				if(file_pos==2){
+					Edit2->Text =  offset_temp;
+					Edit3->Text =  offset_temp-phy_to_logi;
+				}
+				else{
+					int Physical_Lba_offset = GetPhysicalLBA(file_pos, offset_temp,MFTZero_Lba,fileName);
+				}
 			}
 			else{
 			   indx_temp_offset+= indxLength;
@@ -304,5 +313,57 @@ unsigned long TForm1::HextoDec(const unsigned char *hex, int length)
 	return rslt;
 }
 
+int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char fileName[64][64])
+{     /*TODO 	1.在文件夹中先查找0x80和0x90属性头，0x04偏移得到属性长度
+				2.查找0x90属性结束位置有没有0xA0属性
 
+		*/
+	int result =0;
+	buffer_temp = new char [4096];
+	Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,2);
+
+	bool Azero_exsit = false;
+	for (int i = 20; i < 256; i++) {
+		unsigned char* jumpI_range = GetRange(buffer_temp,i*4,4);
+		if(HextoDec(jumpI_range,4)==144){//90属性
+			memset(jumpI_range,0,sizeof(jumpI_range));
+			jumpI_range = GetRange(buffer_temp,(i+1)*4,4);
+			int Azero_offset =  i*4+HextoDec(jumpI_range,4);
+			memset(jumpI_range,0,sizeof(jumpI_range));
+			jumpI_range = GetRange(buffer_temp,Azero_offset,4);
+			if(HextoDec(jumpI_range,4)==160){
+			   Azero_exsit = true;	
+			}
+			//Edit2->Text = jumpI_range[3];
+			break;
+		}
+		else if(HextoDec(jumpI_range,4)==128){//80属性
+			memset(jumpI_range,0,sizeof(jumpI_range));
+			jumpI_range = GetRange(buffer_temp,40,1);
+			int firstpart = jumpI_range[0] >> 4;
+			int secondpart = jumpI_range[0]-firstpart*16;
+			memset(jumpI_range,0,sizeof(jumpI_range));
+			jumpI_range = GetRange(buffer_temp,i+40+firstpart+1,secondpart);
+			
+			break;
+		}
+		else{
+			memset(jumpI_range,0,sizeof(jumpI_range));
+			continue;
+		}
+
+	}
+	Edit3->Text = fileName[filepos-1];
+
+	return result;
+}
+
+
+
+
+void __fastcall TForm1::FileListBox1Change(TObject *Sender)
+{
+	this->FileListBox1 ->Directory=this->FileListBox1 ->Directory;
+}
+//---------------------------------------------------------------------------
 

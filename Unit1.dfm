@@ -53,6 +53,7 @@ object Form1: TForm1
     ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
     ItemHeight = 13
     TabOrder = 2
+    OnChange = FileListBox1Change
   end
   object Button1: TButton
     Left = 320
