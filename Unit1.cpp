@@ -58,13 +58,13 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 	Edit1->Text = StrDirectory;
 
 	/*
-	1.跳转$boot区，Function:提取指定位置 & HextoInt（完成）
-	2.判断MBR,GPT ->跳转至MFT$0->MFT$5号(完成）
-	3.提取指定位置信息（A0属性,runlist）(完成)
+	1.跳转$boot区，Function:判断MBR,GPT(Done) ->提取指定位置 & HextoInt（Done）
+	2.跳转至MFT$0->MFT$5号(Done）
+	3.提取指定位置信息（A0属性,runlist）(Done)
 	TODO:4.loop
-	5.外部索引项(INDX) 	5.1 Loop提取文件名(完成)
-						5.2 索引项文件名与真实文件名对比确定位置 (完成)
-						5.3  跳转至索引项所对应文件MFT号（完成）
+	5.外部索引项(INDX) 	5.1 Loop提取文件名(Done)
+						5.2 索引项文件名与真实文件名对比确定位置 (Done)
+						5.3  跳转至索引项所对应文件MFT号（Done）
 	TODO:6. 判断80,90w/oA0, 90w/A0, 相对应
 	Runlist->result, file name->mft#, RunList->Indx*/
 
@@ -76,14 +76,37 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 	Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,1);
 	//$boot区
 	unsigned char* jumpI_range = GetRange(buffer_temp,454,2);
-	phy_to_logi= HextoDec(jumpI_range,2);
-	offset_temp+= phy_to_logi;
+	int possible_offset = HextoDec(jumpI_range,2);
+
 	memset(buffer_temp,0,sizeof(buffer_temp));
 	memset(jumpI_range,0,sizeof(jumpI_range));
-
+	if (possible_offset == 1) {//GPT
+		int count=0;
+		while(1){
+			Rdsec_SPTI(fileHandle,2,buffer_temp,2);
+			jumpI_range = GetRange(buffer_temp,32+count*128,8);
+			offset_temp = HextoDec(jumpI_range,8);
+			memset(jumpI_range,0,sizeof(jumpI_range));
+			Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,2);
+			jumpI_range = GetRangeForName(buffer_temp,0,3);
+			if(HextoDec(jumpI_range,3)==15422096){
+				phy_to_logi= offset_temp;
+				break;
+			}
+			else{
+				memset(jumpI_range,0,sizeof(jumpI_range));
+                memset(buffer_temp,0,sizeof(buffer_temp));
+				count++;
+			}
+		}
+	}
+	else{//MBR
+		phy_to_logi =  possible_offset;
+		offset_temp =  phy_to_logi；
+	}
 	if(file_pos==1){
-		Edit2->Text = offset_temp;
-		Edit3->Text = "0";
+			Edit2->Text = phy_to_logi;
+			Edit3->Text = 0;
 	}
 	else{
 		//跳转$MFT 0号
@@ -244,8 +267,8 @@ BOOL TForm1::Rdsec_SPTI(HANDLE DeviceHandle,int LBA,unsigned char* wbuf,int Sec_
     sptdwb.sptd.CdbLength = CDB10GENERIC_LENGTH;
     sptdwb.sptd.DataIn = SCSI_IOCTL_DATA_IN;
     sptdwb.sptd.SenseInfoLength = 24;
-    sptdwb.sptd.DataTransferLength = (Sec_Count*512);//sectorSize;
-    sptdwb.sptd.TimeOutValue = 2;
+	sptdwb.sptd.DataTransferLength = (Sec_Count*512);//sectorSize;
+	sptdwb.sptd.TimeOutValue = 2;
 	sptdwb.sptd.DataBuffer = wbuf;
     sptdwb.sptd.SenseInfoOffset =
        offsetof(SCSI_PASS_THROUGH_DIRECT_WITH_BUFFER,ucSenseBuf);
@@ -281,7 +304,14 @@ int TForm1::calc_slash(const char *p, const char chr)
 	}
 	return count;
 }
+/*
+int TForm1::RunListStartLba(char runlistHead)
+{
+	int StartLba = 0;
 
+	return StartLba;
+}
+  */
 unsigned char* TForm1::GetRange(unsigned char* p, int a, int b)
 {
 	unsigned char*temp_p = new unsigned char[b+1];
@@ -366,4 +396,5 @@ void __fastcall TForm1::FileListBox1Change(TObject *Sender)
 	this->FileListBox1 ->Directory=this->FileListBox1 ->Directory;
 }
 //---------------------------------------------------------------------------
+
 
