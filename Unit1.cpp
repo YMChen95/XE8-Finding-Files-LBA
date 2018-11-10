@@ -58,15 +58,16 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 	Edit1->Text = StrDirectory;
 
 	/*
-	1.跳转$boot区，Function:判断MBR,GPT(Done) ->提取指定位置 & HextoInt（Done）
+	1.:判断MBR,GPT(Done) ->跳转$boot区，Function提取指定位置 & HextoInt（Done）
 	2.跳转至MFT$0->MFT$5号(Done）
 	3.提取指定位置信息（A0属性,runlist）(Done)
 	TODO:4.loop
 	5.外部索引项(INDX) 	5.1 Loop提取文件名(Done)
 						5.2 索引项文件名与真实文件名对比确定位置 (Done)
 						5.3  跳转至索引项所对应文件MFT号（Done）
-	TODO:6. 判断80,90w/oA0, 90w/A0, 相对应
-	Runlist->result, file name->mft#, RunList->Indx*/
+	6. 判断80,90w/oA0, 90w/A0, 相对应（done）
+	Runlist->result, file name->mft#, RunList->Indx  跳转
+	*/
 
 	int offset_temp = 0;
 	int phy_to_logi=0; //physical, logical sector 偏移
@@ -102,7 +103,7 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 	}
 	else{//MBR
 		phy_to_logi =  possible_offset;
-		offset_temp =  phy_to_logi；
+		offset_temp =  phy_to_logi;
 	}
 	if(file_pos==1){
 			Edit2->Text = phy_to_logi;
@@ -150,7 +151,7 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 		jumpI_range = GetRange(buffer_temp,RunListHead_offset+firstpart+1,secondpart);//从runlist得到外部索引起始簇号
 
 		offset_temp = HextoDec(jumpI_range,secondpart)*8+phy_to_logi;//索引项的cluster #(physical)
-		Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,4);//跳转到外部索引 ->读取
+		Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,8);//跳转到外部索引 ->读取
 		memset(jumpI_range,0,sizeof(jumpI_range));
 
 		jumpI_range=GetRange(buffer_temp,24,4);
@@ -344,8 +345,10 @@ unsigned long TForm1::HextoDec(const unsigned char *hex, int length)
 }
 
 int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char fileName[64][64])
-{     /*TODO 	1.在文件夹中先查找0x80和0x90属性头，0x04偏移得到属性长度
-				2.查找0x90属性结束位置有没有0xA0属性
+{     /*TODO 	1.判断80,90w/,w/o A0(done)
+					1.1 80 分析Runlist->start LBA
+					1.2 90 w/ A0  分析Runlist->INDX
+					1.3 90 w/o A0 INDX
 
 		*/
 	int result =0;
@@ -361,11 +364,24 @@ int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char f
 			int Azero_offset =  i*4+HextoDec(jumpI_range,4);
 			memset(jumpI_range,0,sizeof(jumpI_range));
 			jumpI_range = GetRange(buffer_temp,Azero_offset,4);
-			if(HextoDec(jumpI_range,4)==160){//A0属性
-			   Azero_exsit = true;
+			if(HextoDec(jumpI_range,4)==160){//with A0属性
+				Edit2->Text = "90WithA0";
+				memset(jumpI_range,0,sizeof(jumpI_range));
+				jumpI_range = GetRange(buffer_temp,Azero_offset+32,1);
+				int firstpart = jumpI_range[0] >> 4;
+				int secondpart = jumpI_range[0]-firstpart*16;
+				memset(jumpI_range,0,sizeof(jumpI_range));
+				jumpI_range = GetRange(buffer_temp,Azero_offset+32+firstpart+1,secondpart);
+				break;
+				//same to 80
+			}
+			else{//withoud A0
+				Edit2->Text = "90WithouA0";
+				break;
+				//Similar to INDX
 			}
 			//Edit2->Text = jumpI_range[3];
-			break;
+
 		}
 		else if(HextoDec(jumpI_range,4)==128){//80属性
 			memset(jumpI_range,0,sizeof(jumpI_range));
@@ -374,7 +390,9 @@ int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char f
 			int secondpart = jumpI_range[0]-firstpart*16;
 			memset(jumpI_range,0,sizeof(jumpI_range));
 			jumpI_range = GetRange(buffer_temp,i+40+firstpart+1,secondpart);
+			Edit2->Text = "80";
 
+			result = HextoInt(jumpI_range,firstpart);
 			break;
 		}
 		else{
