@@ -40,7 +40,7 @@ public:		// User declarations
 	unsigned char* GetRange(unsigned char* p, int a, int b);
 	unsigned long HextoDec(const unsigned char *hex, int length);
 	unsigned char* GetRangeForName(unsigned char* p, int a, int b);
-	int GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char fileName[64][64]);
+	int GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char fileName[64][64], int phy_to_logi);
 };
 //---------------------------------------------------------------------------
 extern PACKAGE TForm1 *Form1;

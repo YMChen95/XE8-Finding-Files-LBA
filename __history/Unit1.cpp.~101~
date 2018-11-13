@@ -195,7 +195,9 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 					Edit3->Text =  offset_temp-phy_to_logi;
 				}
 				else{
-					int Physical_Lba_offset = GetPhysicalLBA(file_pos, offset_temp,MFTZero_Lba,fileName);
+					int Physical_Lba_offset = GetPhysicalLBA(file_pos, offset_temp,MFTZero_Lba,fileName,phy_to_logi);
+					Edit2->Text = Physical_Lba_offset;
+					Edit3->Text = Physical_Lba_offset-phy_to_logi;
 				}
 			}
 			else{
@@ -344,12 +346,11 @@ unsigned long TForm1::HextoDec(const unsigned char *hex, int length)
 	return rslt;
 }
 
-int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char fileName[64][64])
+int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char fileName[64][64], int phy_to_logi)
 {     /*TODO 	1.判断80,90w/,w/o A0(done)
 					1.1 80 分析Runlist->start LBA
 					1.2 90 w/ A0  分析Runlist->INDX
 					1.3 90 w/o A0 INDX
-				2.
 
 		*/
 	int result =0;
@@ -360,26 +361,69 @@ int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char f
 	for (int i = 20; i < 256; i++) {
 		unsigned char* jumpI_range = GetRange(buffer_temp,i*4,4);
 		if(HextoDec(jumpI_range,4)==144){//90属性
+			int nineZero_offset = i*4;
 			memset(jumpI_range,0,sizeof(jumpI_range));
 			jumpI_range = GetRange(buffer_temp,(i+1)*4,4);
 			int Azero_offset =  i*4+HextoDec(jumpI_range,4);
 			memset(jumpI_range,0,sizeof(jumpI_range));
 			jumpI_range = GetRange(buffer_temp,Azero_offset,4);
 			if(HextoDec(jumpI_range,4)==160){//with A0属性
-				Edit2->Text = "90WithA0";
+
 				memset(jumpI_range,0,sizeof(jumpI_range));
-				jumpI_range = GetRange(buffer_temp,Azero_offset+32,1);
+				jumpI_range = GetRange(buffer_temp,Azero_offset+72,1);
 				int firstpart = jumpI_range[0] >> 4;
 				int secondpart = jumpI_range[0]-firstpart*16;
-                memset(jumpI_range,0,sizeof(jumpI_range));
-				jumpI_range = GetRange(buffer_temp,Azero_offset+32+firstpart+1,secondpart);
+				memset(jumpI_range,0,sizeof(jumpI_range));
+				jumpI_range = GetRange(buffer_temp,Azero_offset+72+firstpart+1,secondpart);
+				result = HextoDec(jumpI_range,firstpart)*8+phy_to_logi;
 				break;
-				//same to 80
-
+				//jump to INDX
 			}
 			else{//withoud A0
-				Edit2->Text = "90WithouA0";
 
+				bool find_file_flag = false;
+				int name_length = HextoDec(GetRange(buffer_temp,nineZero_offset+9,1),1);
+				int indx_temp_offset = nineZero_offset+64;//90第一个索引项的偏移0x40
+				memset(jumpI_range,0,sizeof(jumpI_range));
+
+				while (!find_file_flag) {
+					int indxLength =0, fileNameLength=0;
+					jumpI_range=GetRange(buffer_temp,indx_temp_offset+8,2);// 索引项长度的偏移0x08
+					indxLength = HextoDec(jumpI_range,2);
+					memset(jumpI_range,0,sizeof(jumpI_range));
+
+					int temp =indx_temp_offset + 82;
+					jumpI_range=GetRange(buffer_temp,temp-2,1);
+					fileNameLength = HextoDec(jumpI_range,1);
+					memset(jumpI_range,0,sizeof(jumpI_range));
+
+					char *fileNameIndx = new char[fileNameLength];
+					jumpI_range=GetRangeForName(buffer_temp,temp,2*fileNameLength);
+					int i = 0;
+					int j =0;
+					for (i = 0; i < 2*fileNameLength; i++) {
+						if(jumpI_range[i]==0){
+							continue;
+						}
+						else{
+						   fileNameIndx[j]=  jumpI_range[i];
+						   j++;
+						}
+					}
+					//找到索引项对应
+					if (strcmp(fileNameIndx,fileName[filepos-1])==0) {
+						memset(jumpI_range,0,sizeof(jumpI_range));
+						jumpI_range=GetRange(buffer_temp,indx_temp_offset,4);
+						find_file_flag=true;
+						offset_temp = MFTZero_Lba + HextoDec(jumpI_range,4)*2;
+						result = offset_temp;
+					}
+					else{
+					   indx_temp_offset+= indxLength;
+					   memset(jumpI_range,0,sizeof(jumpI_range));
+					}
+
+				}
 				break;
 				//Similar to INDX
 			}
@@ -387,15 +431,7 @@ int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char f
 
 		}
 		else if(HextoDec(jumpI_range,4)==128){//80属性
-			memset(jumpI_range,0,sizeof(jumpI_range));
-			jumpI_range = GetRange(buffer_temp,40,1);
-			int firstpart = jumpI_range[0] >> 4;
-			int secondpart = jumpI_range[0]-firstpart*16;
-			memset(jumpI_range,0,sizeof(jumpI_range));
-			jumpI_range = GetRange(buffer_temp,i+40+firstpart+1,secondpart);
-			Edit2->Text = "80";
-
-			result = HextoInt(jumpI_range,firstpart);
+			result = offset_temp;
 			break;
 		}
 		else{
@@ -404,8 +440,6 @@ int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char f
 		}
 
 	}
-	Edit3->Text = fileName[filepos-1];
-
 	return result;
 }
 
