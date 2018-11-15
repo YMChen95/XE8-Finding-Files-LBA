@@ -33,7 +33,7 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 	Edit1->Clear();
 	Edit2->Clear();
 	Edit3->Clear();
-    bool indx_name_found = false;
+	indx_name_found = false;
 	//分割文件名（完成）
 	int numOfSlash =0;
 	TCHAR StrDrive=this->DriveComboBox1->Drive;
@@ -185,6 +185,11 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 					}
 				}
 				//找到索引项对应
+				if(indx_temp_offset>4096){
+					Edit2->Text =  "not found in runlist1";
+					Edit3->Text =  "error";
+                    break;
+				}
 				if (strcmp(fileNameIndx,fileName[current_filepos])==0) {
 					memset(jumpI_range,0,sizeof(jumpI_range));
 					jumpI_range=GetRange(buffer_temp,indx_temp_offset,4);
@@ -197,6 +202,7 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 				   memset(jumpI_range,0,sizeof(jumpI_range));
 				   }
 
+
 			}
 			if(file_pos-1==current_filepos){
 				Edit2->Text =  offset_temp;
@@ -204,8 +210,9 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 				break;
 			}
 			else{
-				int Physical_Lba_offset = GetPhysicalLBA(file_pos, offset_temp,MFTZero_Lba,fileName,phy_to_logi);
+				int Physical_Lba_offset = GetPhysicalLBA(file_pos, offset_temp,MFTZero_Lba,fileName[current_filepos+1],phy_to_logi);
 				offset_temp =  Physical_Lba_offset;
+				memset(buffer_temp,0,sizeof(buffer_temp));
 				Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,8);//跳转到外部索引 ->读取
 				memset(jumpI_range,0,sizeof(jumpI_range));
 			}
@@ -352,7 +359,7 @@ unsigned long TForm1::HextoDec(const unsigned char *hex, int length)
 	return rslt;
 }
 
-int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char fileName[64][64], int phy_to_logi)
+int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char fileName[], int phy_to_logi)
 {     /*TODO 	1.判断80,90w/,w/o A0(done)
 					1.1 80 分析Runlist->start LBA
 					1.2 90 w/ A0  分析Runlist->INDX
@@ -381,6 +388,7 @@ int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char f
 				memset(jumpI_range,0,sizeof(jumpI_range));
 				jumpI_range = GetRange(buffer_temp,Azero_offset+72+firstpart+1,secondpart);
 				result = HextoDec(jumpI_range,firstpart)*8+phy_to_logi;
+                indx_name_found = false;
 				break;
 				//jump to INDX
 			}
@@ -416,7 +424,7 @@ int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char f
 						}
 					}
 					//找到索引项对应
-					if (strcmp(fileNameIndx,fileName[filepos-1])==0) {
+					if (strcmp(fileNameIndx,fileName)==0) {
 						memset(jumpI_range,0,sizeof(jumpI_range));
 						jumpI_range=GetRange(buffer_temp,indx_temp_offset,4);
 						find_file_flag=true;
