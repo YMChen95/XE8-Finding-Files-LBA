@@ -13,6 +13,20 @@ object Form1: TForm1
   OldCreateOrder = False
   PixelsPerInch = 96
   TextHeight = 13
+  object Label1: TLabel
+    Left = 32
+    Top = 224
+    Width = 71
+    Height = 13
+    Caption = 'Physical sector'
+  end
+  object Label2: TLabel
+    Left = 160
+    Top = 224
+    Width = 65
+    Height = 13
+    Caption = 'Logical sector'
+  end
   object DirectoryListBox1: TDirectoryListBox
     Left = 8
     Top = 32
@@ -39,9 +53,10 @@ object Form1: TForm1
     ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
     ItemHeight = 13
     TabOrder = 2
+    OnChange = FileListBox1Change
   end
   object Button1: TButton
-    Left = 192
+    Left = 320
     Top = 229
     Width = 89
     Height = 35
@@ -50,12 +65,28 @@ object Form1: TForm1
     OnClick = Button1Click
   end
   object Edit1: TEdit
-    Left = 256
+    Left = 248
     Top = 5
-    Width = 121
+    Width = 233
     Height = 21
     ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
     ReadOnly = True
     TabOrder = 4
+  end
+  object Edit2: TEdit
+    Left = 8
+    Top = 243
+    Width = 105
+    Height = 21
+    ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    TabOrder = 5
+  end
+  object Edit3: TEdit
+    Left = 134
+    Top = 243
+    Width = 115
+    Height = 21
+    ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    TabOrder = 6
   end
 end

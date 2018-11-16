@@ -14,6 +14,8 @@ bool indx_name_found = false;
 __fastcall TForm1::TForm1(TComponent* Owner)
 	: TForm(Owner)
 {
+	Label3->Caption = "MFT";
+	Label4->Caption = "Data";
 }
 //---------------------------------------------------------------------------
 void __fastcall TForm1::DriveComboBox1Change(TObject *Sender)
@@ -33,16 +35,20 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 	Edit1->Clear();
 	Edit2->Clear();
 	Edit3->Clear();
+	Edit4->Clear();
+	Edit5->Clear();
 	indx_name_found = false;
 	//分割文件名（完成）
 	int numOfSlash =0;
 	TCHAR StrDrive=this->DriveComboBox1->Drive;
 	AnsiString StrDirectory = this->FileListBox1->FileName;
+	bool has_file = true;
 	char ListDirectory[64];
 	char fileName[64][64]={""}; //指定分隔后子字符串存储的位置，这里定义二维字符串数组
 
 	if (StrDirectory == "") {
 		StrDirectory = this->FileListBox1->Directory;
+		has_file = false;
 	}
 	strcpy(ListDirectory, StrDirectory.c_str());
 	numOfSlash = calc_slash(ListDirectory,'\\');
@@ -185,7 +191,7 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 					}
 				}
 				//找到索引项对应
-				if(indx_temp_offset>4096){
+				if(indx_temp_offset>=4096){
 					Edit2->Text =  "not found in runlist1";
 					Edit3->Text =  "error";
                     break;
@@ -202,11 +208,19 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 				   memset(jumpI_range,0,sizeof(jumpI_range));
 				   }
 
-
 			}
-			if(file_pos-1==current_filepos){
-				Edit2->Text =  offset_temp;
-				Edit3->Text =  offset_temp-phy_to_logi;
+
+
+			if(file_pos-1==current_filepos ){
+				if(has_file){
+					Edit2->Text =  offset_temp;
+					Edit3->Text =  offset_temp-phy_to_logi;
+					int eight_zeroRunlist = getLBA_forEightZero(offset_temp,phy_to_logi);
+				}
+				else{
+					Edit2->Text =  offset_temp;
+					Edit3->Text =  offset_temp-phy_to_logi;
+				}
 				break;
 			}
 			else{
@@ -217,12 +231,11 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 				memset(jumpI_range,0,sizeof(jumpI_range));
 			}
 
+
 			//80,90 w/t A0
 		}
 	}
 }
-	//Edit3->Text = secondpart;
-	//Edit3->Text =;
 
 	/*
 	Application->NormalizeTopMosts();
@@ -320,15 +333,8 @@ int TForm1::calc_slash(const char *p, const char chr)
 	}
 	return count;
 }
-/*
-int TForm1::RunListStartLba(char runlistHead)
-{
-	int StartLba = 0;
 
-	return StartLba;
-}
-  */
-unsigned char* TForm1::GetRange(unsigned char* p, int a, int b)
+unsigned char* TForm1::GetRange(unsigned char* p, int a, int b)
 {
 	unsigned char*temp_p = new unsigned char[b+1];
 
@@ -372,14 +378,14 @@ int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char f
 
 	for (int i = 20; i < 256; i++) {
 		unsigned char* jumpI_range = GetRange(buffer_temp,i*4,4);
-		if(HextoDec(jumpI_range,4)==144){//90属性
+		if(HextoDec(jumpI_range,4)==144){//90 header
 			int nineZero_offset = i*4;
 			memset(jumpI_range,0,sizeof(jumpI_range));
 			jumpI_range = GetRange(buffer_temp,(i+1)*4,4);
 			int Azero_offset =  i*4+HextoDec(jumpI_range,4);
 			memset(jumpI_range,0,sizeof(jumpI_range));
 			jumpI_range = GetRange(buffer_temp,Azero_offset,4);
-			if(HextoDec(jumpI_range,4)==160){//with A0属性
+			if(HextoDec(jumpI_range,4)==160){//with A0header
 
 				memset(jumpI_range,0,sizeof(jumpI_range));
 				jumpI_range = GetRange(buffer_temp,Azero_offset+72,1);
@@ -443,8 +449,21 @@ int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char f
 			}
 
 		}
-		else if(HextoDec(jumpI_range,4)==128){//80属性
-			result = offset_temp;
+		else if(HextoDec(jumpI_range,4)==128){//80header
+			int eightZero_offset = i*4;
+			memset(jumpI_range,0,sizeof(jumpI_range));
+			jumpI_range = GetRange(buffer_temp,eightZero_offset+8,1);
+			if(HextoDec(jumpI_range,1)==1){
+				memset(jumpI_range,0,sizeof(jumpI_range));
+				jumpI_range = GetRange(buffer_temp,eightZero_offset+64,1);
+				int firstpart = jumpI_range[0] >> 4;
+				int secondpart = jumpI_range[0]-firstpart*16;
+				memset(jumpI_range,0,sizeof(jumpI_range));
+				jumpI_range = GetRange(buffer_temp,eightZero_offset+64+secondpart+1,firstpart);
+				offset_temp = HextoDec(jumpI_range,firstpart);
+				}
+
+			result = offset_temp-phy_to_logi;
 			bool indx_name_found = true;
 			break;
 		}
@@ -457,7 +476,38 @@ int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char f
 	return result;
 }
 
+int TForm1::getLBA_forEightZero(int offset_temp, int phy_to_logi){
+	int result =0;
+	buffer_temp = new char [4096];
+	Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,2);
 
+	for (int i = 20; i < 256; i++) {
+		unsigned char* jumpI_range = GetRange(buffer_temp,i*4,4);
+		if(HextoDec(jumpI_range,4)==128){//80header
+			int eightZero_offset = i*4;
+			memset(jumpI_range,0,sizeof(jumpI_range));
+			jumpI_range = GetRange(buffer_temp,eightZero_offset+8,1);
+			if(HextoDec(jumpI_range,1)==1){
+				memset(jumpI_range,0,sizeof(jumpI_range));
+				jumpI_range = GetRange(buffer_temp,eightZero_offset+64,1);
+				int firstpart = jumpI_range[0] >> 4;
+				int secondpart = jumpI_range[0]-firstpart*16;
+				memset(jumpI_range,0,sizeof(jumpI_range));
+				jumpI_range = GetRange(buffer_temp,eightZero_offset+64+secondpart+1,firstpart);
+				offset_temp = HextoDec(jumpI_range,firstpart);
+				}
+			result = offset_temp-phy_to_logi;
+			break;
+		}
+		else{
+			memset(jumpI_range,0,sizeof(jumpI_range));
+			continue;
+		}
+
+	}
+	return result;
+
+}
 
 
 void __fastcall TForm1::FileListBox1Change(TObject *Sender)
