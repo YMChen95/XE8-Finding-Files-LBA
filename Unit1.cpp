@@ -10,6 +10,7 @@
 TForm1 *Form1;
 unsigned char* buffer_temp;
 bool indx_name_found = false;
+int A_zero_RunListnum = 0;
 //---------------------------------------------------------------------------
 __fastcall TForm1::TForm1(TComponent* Owner)
 	: TForm(Owner)
@@ -161,8 +162,9 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 		Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,8);//跳转到外部索引 ->读取
 		memset(jumpI_range,0,sizeof(jumpI_range));
 
-
+		int Physical_Lba_offset = 0;
 		for (int current_filepos = 1; current_filepos <= file_pos; current_filepos++) {
+			bool next_Azero = false;
 			jumpI_range=GetRange(buffer_temp,24,4);
 			int indx_temp_offset = HextoDec(jumpI_range,4)+24;//第一个索引项的偏移0x18
 			memset(jumpI_range,0,sizeof(jumpI_range));
@@ -192,9 +194,8 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 				}
 				//找到索引项对应
 				if(indx_temp_offset>=4096){
-					Edit2->Text =  "not found in runlist1";
-					Edit3->Text =  "error";
-                    break;
+					Edit1->Text =  "not found in runlist1";
+					break;
 				}
 				if (strcmp(fileNameIndx,fileName[current_filepos])==0) {
 					memset(jumpI_range,0,sizeof(jumpI_range));
@@ -226,11 +227,14 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 				break;
 			}
 			else{
-				int Physical_Lba_offset = GetPhysicalLBA(file_pos, offset_temp,MFTZero_Lba,fileName[current_filepos+1],phy_to_logi);
-				offset_temp =  Physical_Lba_offset;
+
+				Physical_Lba_offset = GetPhysicalLBA(file_pos, offset_temp,MFTZero_Lba,fileName[current_filepos+1],phy_to_logi);
+
+				offset_temp = Physical_Lba_offset;
 				memset(buffer_temp,0,sizeof(buffer_temp));
-				Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,8);//跳转到外部索引 ->读取
+				Rdsec_SPTI(fileHandle,Physical_Lba_offset,buffer_temp,8);//跳转到外部索引 ->读取
 				memset(jumpI_range,0,sizeof(jumpI_range));
+
 			}
 
 
@@ -389,13 +393,15 @@ int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char f
 			if(HextoDec(jumpI_range,4)==160){//with A0header
 
 				memset(jumpI_range,0,sizeof(jumpI_range));
-				jumpI_range = GetRange(buffer_temp,Azero_offset+72,1);
+				jumpI_range = GetRange(buffer_temp,Azero_offset+A_zero_RunListnum+72,1);
 				int firstpart = jumpI_range[0] >> 4;
 				int secondpart = jumpI_range[0]-firstpart*16;
 				memset(jumpI_range,0,sizeof(jumpI_range));
-				jumpI_range = GetRange(buffer_temp,Azero_offset+72+secondpart+1,firstpart);
+				jumpI_range = GetRange(buffer_temp,Azero_offset+A_zero_RunListnum+72+secondpart+1,firstpart);
 				result = HextoDec(jumpI_range,firstpart)*8+phy_to_logi;
 				indx_name_found = false;
+				A_zero_RunListnum +=  firstpart+secondpart+1;
+
 				break;
 				//jump to INDX
 			}
