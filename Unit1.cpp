@@ -10,13 +10,18 @@
 TForm1 *Form1;
 unsigned char* buffer_temp;
 bool indx_name_found = false;
-int A_zero_RunListnum = 0;
+
+
+
+
 //---------------------------------------------------------------------------
 __fastcall TForm1::TForm1(TComponent* Owner)
 	: TForm(Owner)
 {
+
 	Label3->Caption = "MFT";
 	Label4->Caption = "Data";
+
 }
 //---------------------------------------------------------------------------
 void __fastcall TForm1::DriveComboBox1Change(TObject *Sender)
@@ -163,8 +168,9 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 		memset(jumpI_range,0,sizeof(jumpI_range));
 
 		int Physical_Lba_offset = 0;
+		int offset_mirror=0;
 		for (int current_filepos = 1; current_filepos <= file_pos; current_filepos++) {
-			bool next_Azero = false;
+			int next_Azero = 0;
 			jumpI_range=GetRange(buffer_temp,24,4);
 			int indx_temp_offset = HextoDec(jumpI_range,4)+24;//第一个索引项的偏移0x18
 			memset(jumpI_range,0,sizeof(jumpI_range));
@@ -195,23 +201,31 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 				//找到索引项对应
 				if(indx_temp_offset>=4096){
 					Edit1->Text =  "not found in runlist1";
-					break;
-				}
-				if (strcmp(fileNameIndx,fileName[current_filepos])==0) {
-					memset(jumpI_range,0,sizeof(jumpI_range));
-					jumpI_range=GetRange(buffer_temp,indx_temp_offset,4);
-					indx_name_found=true;
-					offset_temp = MFTZero_Lba + HextoDec(jumpI_range,4)*2;
-
+					//second runlist, third runlist...
+					next_Azero ++;
+					Physical_Lba_offset = GetPhysicalLBA(file_pos, offset_mirror,MFTZero_Lba,fileName[current_filepos+1],phy_to_logi,next_Azero);
+					offset_temp = Physical_Lba_offset;
+					Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,8);
+                    memset(jumpI_range,0,sizeof(jumpI_range));
+					jumpI_range=GetRange(buffer_temp,24,4);
+					indx_temp_offset = HextoDec(jumpI_range,4)+24;
 				}
 				else{
-				   indx_temp_offset+= indxLength;
-				   memset(jumpI_range,0,sizeof(jumpI_range));
+					if (strncmp(fileNameIndx,fileName[current_filepos],fileNameLength)==0) {
+						memset(jumpI_range,0,sizeof(jumpI_range));
+						jumpI_range=GetRange(buffer_temp,indx_temp_offset,4);
+						indx_name_found=true;
+						offset_temp = MFTZero_Lba + HextoDec(jumpI_range,4)*2;
+
+					}
+					else{
+					   indx_temp_offset+= indxLength;
+					   memset(jumpI_range,0,sizeof(jumpI_range));
 				   }
+				}
 
 			}
-
-
+			offset_mirror = offset_temp;
 			if(file_pos-1==current_filepos ){
 				if(has_file){
 					Edit2->Text =  offset_temp;
@@ -227,22 +241,17 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 				break;
 			}
 			else{
-
-				Physical_Lba_offset = GetPhysicalLBA(file_pos, offset_temp,MFTZero_Lba,fileName[current_filepos+1],phy_to_logi);
-
+				Physical_Lba_offset = GetPhysicalLBA(file_pos, offset_temp,MFTZero_Lba,fileName[current_filepos+1],phy_to_logi,0);
 				offset_temp = Physical_Lba_offset;
 				memset(buffer_temp,0,sizeof(buffer_temp));
 				Rdsec_SPTI(fileHandle,Physical_Lba_offset,buffer_temp,8);//跳转到外部索引 ->读取
 				memset(jumpI_range,0,sizeof(jumpI_range));
 
 			}
-
-
 			//80,90 w/t A0
 		}
 	}
 }
-
 	/*
 	Application->NormalizeTopMosts();
 	#ifdef _DELPHI_STRING_UNICODE
@@ -371,7 +380,7 @@ unsigned long TForm1::HextoDec(const unsigned char *hex, int length)
 	return rslt;
 }
 
-int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char fileName[], int phy_to_logi)
+int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char fileName[], int phy_to_logi, int next_Azero)
 {     /*TODO 	1.判断90w/,w/o A0(done)
 					1.1 90 w/ A0  分析Runlist->INDX
 					1.2 90 w/o A0 INDX
@@ -391,16 +400,20 @@ int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char f
 			memset(jumpI_range,0,sizeof(jumpI_range));
 			jumpI_range = GetRange(buffer_temp,Azero_offset,4);
 			if(HextoDec(jumpI_range,4)==160){//with A0header
-
-				memset(jumpI_range,0,sizeof(jumpI_range));
-				jumpI_range = GetRange(buffer_temp,Azero_offset+A_zero_RunListnum+72,1);
-				int firstpart = jumpI_range[0] >> 4;
-				int secondpart = jumpI_range[0]-firstpart*16;
-				memset(jumpI_range,0,sizeof(jumpI_range));
-				jumpI_range = GetRange(buffer_temp,Azero_offset+A_zero_RunListnum+72+secondpart+1,firstpart);
-				result = HextoDec(jumpI_range,firstpart)*8+phy_to_logi;
+				int current_RL_offset = 0;
+				for(int j = 0; j< next_Azero+1;j++){
+					memset(jumpI_range,0,sizeof(jumpI_range));
+					jumpI_range = GetRange(buffer_temp,Azero_offset+72+current_RL_offset,1);
+					int firstpart = jumpI_range[0] >> 4;
+					int secondpart = jumpI_range[0]-firstpart*16;
+					memset(jumpI_range,0,sizeof(jumpI_range));
+					current_RL_offset++;
+					jumpI_range = GetRange(buffer_temp,Azero_offset+current_RL_offset+72+secondpart,firstpart);
+					result += HextoDec(jumpI_range,firstpart)*8;
+					current_RL_offset+=  firstpart+secondpart;
+					}
+				result +=phy_to_logi;
 				indx_name_found = false;
-				A_zero_RunListnum +=  firstpart+secondpart+1;
 
 				break;
 				//jump to INDX
@@ -470,10 +483,15 @@ int TForm1::getLBA_forEightZero(int offset_temp, int phy_to_logi){
 	int result =0;
 	buffer_temp = new char [4096];
 	Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,2);
-
+	int offset_mirror = offset_temp;
 	for (int i = 20; i < 256; i++) {
 		unsigned char* jumpI_range = GetRange(buffer_temp,i*4,4);
 		if(HextoDec(jumpI_range,4)==128){//80header
+			memset(jumpI_range,0,sizeof(jumpI_range));
+			jumpI_range = GetRange(buffer_temp,(i-1)*4,4);
+			if(HextoDec(jumpI_range,4)==48){
+                continue;
+			}
 			int eightZero_offset = i*4;
 			memset(jumpI_range,0,sizeof(jumpI_range));
 			jumpI_range = GetRange(buffer_temp,eightZero_offset+8,1);
@@ -485,8 +503,11 @@ int TForm1::getLBA_forEightZero(int offset_temp, int phy_to_logi){
 				memset(jumpI_range,0,sizeof(jumpI_range));
 				jumpI_range = GetRange(buffer_temp,eightZero_offset+64+secondpart+1,firstpart);
 				offset_temp = HextoDec(jumpI_range,firstpart)*8+phy_to_logi;
+				result = offset_temp;
 				}
-			result = offset_temp;
+			else{
+				result = offset_mirror;
+				}
 			break;
 		}
 		else{
@@ -495,6 +516,7 @@ int TForm1::getLBA_forEightZero(int offset_temp, int phy_to_logi){
 		}
 
 	}
+
 	return result;
 
 }
