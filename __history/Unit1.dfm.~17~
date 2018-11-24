@@ -1,0 +1,122 @@
+object Form1: TForm1
+  Left = 0
+  Top = 0
+  Caption = 'Form1'
+  ClientHeight = 301
+  ClientWidth = 495
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  PixelsPerInch = 96
+  TextHeight = 13
+  object Label1: TLabel
+    Left = 80
+    Top = 224
+    Width = 71
+    Height = 13
+    Caption = 'Physical sector'
+  end
+  object Label2: TLabel
+    Left = 216
+    Top = 224
+    Width = 65
+    Height = 13
+    Caption = 'Logical sector'
+  end
+  object Label3: TLabel
+    Left = 24
+    Top = 246
+    Width = 31
+    Height = 13
+    Caption = 'Label3'
+  end
+  object Label4: TLabel
+    Left = 24
+    Top = 273
+    Width = 31
+    Height = 13
+    Caption = 'Label4'
+  end
+  object DirectoryListBox1: TDirectoryListBox
+    Left = 8
+    Top = 32
+    Width = 217
+    Height = 191
+    ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    TabOrder = 0
+    OnChange = DirectoryListBox1Change
+  end
+  object DriveComboBox1: TDriveComboBox
+    Left = 8
+    Top = 7
+    Width = 217
+    Height = 19
+    ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    TabOrder = 1
+    OnChange = DriveComboBox1Change
+  end
+  object FileListBox1: TFileListBox
+    Left = 231
+    Top = 32
+    Width = 258
+    Height = 191
+    ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    ItemHeight = 13
+    TabOrder = 2
+    OnChange = FileListBox1Change
+  end
+  object Button1: TButton
+    Left = 344
+    Top = 243
+    Width = 97
+    Height = 38
+    Caption = 'Get Start Sectors'
+    TabOrder = 3
+    OnClick = Button1Click
+  end
+  object Edit1: TEdit
+    Left = 248
+    Top = 5
+    Width = 241
+    Height = 21
+    ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    ReadOnly = True
+    TabOrder = 4
+  end
+  object Edit2: TEdit
+    Left = 61
+    Top = 243
+    Width = 105
+    Height = 21
+    ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    TabOrder = 5
+  end
+  object Edit3: TEdit
+    Left = 190
+    Top = 243
+    Width = 115
+    Height = 21
+    ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    TabOrder = 6
+  end
+  object Edit4: TEdit
+    Left = 61
+    Top = 270
+    Width = 106
+    Height = 21
+    ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    TabOrder = 7
+  end
+  object Edit5: TEdit
+    Left = 190
+    Top = 270
+    Width = 115
+    Height = 21
+    ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    TabOrder = 8
+  end
+end

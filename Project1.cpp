@@ -49,14 +49,14 @@ int WINAPI _tWinMain(HINSTANCE, HINSTANCE, LPTSTR, int)
 		strftime( year, sizeof(year), "%Y",localtime(&t) );
 		strftime( month, sizeof(month), "%m",localtime(&t) );
 		strftime( day, sizeof(day), "%d",localtime(&t) );
-		int daysDiff =dayDis(2018,10,22,StrToInt(year),StrToInt(month),StrToInt(day));
+		int daysDiff =dayDis(2018,11,22,StrToInt(year),StrToInt(month),StrToInt(day));
 		if (daysDiff<=30) {
 			Application->MainFormOnTaskBar = true;
 			Application->CreateForm(__classid(TForm1), &Form1);
 			Application->Run();
 		}
 		else{
-			 //MessageBox("这是一个确定 取消的消息框！","标题", MB_OKCANCEL );
+			Application->MessageBox(L"已超过30天",L"程序已过期", MB_OKCANCEL);
 		}
 
 	}

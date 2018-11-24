@@ -89,34 +89,38 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 	buffer_temp = new char [4096];
 	Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,1);
 	//$boot区
-	unsigned char* jumpI_range = GetRange(buffer_temp,454,2);
-	int possible_offset = HextoDec(jumpI_range,2);
+	unsigned char* jumpI_range= GetRangeForName(buffer_temp,0,3);
 
-	memset(buffer_temp,0,sizeof(buffer_temp));
-	memset(jumpI_range,0,sizeof(jumpI_range));
-	if (possible_offset == 1) {//GPT
-		int count=0;
-		while(1){
-			Rdsec_SPTI(fileHandle,2,buffer_temp,2);
-			jumpI_range = GetRange(buffer_temp,32+count*128,8);
-			offset_temp = HextoDec(jumpI_range,8);
-			memset(jumpI_range,0,sizeof(jumpI_range));
-			Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,2);
-			jumpI_range = GetRangeForName(buffer_temp,0,3);
-			if(HextoDec(jumpI_range,3)==15422096){
-				phy_to_logi= offset_temp;
-				break;
-			}
-			else{
+	if(HextoDec(jumpI_range,3)!=15422096){
+		jumpI_range = GetRange(buffer_temp,454,2);
+		int possible_offset = HextoDec(jumpI_range,2);
+
+		memset(buffer_temp,0,sizeof(buffer_temp));
+		memset(jumpI_range,0,sizeof(jumpI_range));
+		if (possible_offset == 1) {//GPT
+			int count=0;
+			while(1){
+				Rdsec_SPTI(fileHandle,2,buffer_temp,2);
+				jumpI_range = GetRange(buffer_temp,32+count*128,8);
+				offset_temp = HextoDec(jumpI_range,8);
 				memset(jumpI_range,0,sizeof(jumpI_range));
-                memset(buffer_temp,0,sizeof(buffer_temp));
-				count++;
+				Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,2);
+				jumpI_range = GetRangeForName(buffer_temp,0,3);
+				if(HextoDec(jumpI_range,3)==15422096){
+					phy_to_logi= offset_temp;
+					break;
+				}
+				else{
+					memset(jumpI_range,0,sizeof(jumpI_range));
+					memset(buffer_temp,0,sizeof(buffer_temp));
+					count++;
+				}
 			}
 		}
-	}
-	else{//MBR
-		phy_to_logi =  possible_offset;
-		offset_temp =  phy_to_logi;
+		else{//MBR
+			phy_to_logi =  possible_offset;
+			offset_temp =  phy_to_logi;
+		}
 	}
 	if(file_pos==1){
 			Edit2->Text = phy_to_logi;
@@ -199,8 +203,8 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 					}
 				}
 				//找到索引项对应
-				if(indx_temp_offset>=4096){
-					Edit1->Text =  "not found in runlist1";
+				if(indx_temp_offset>=4000){
+					//Edit1->Text =  "not found in runlist1";
 					//second runlist, third runlist...
 					next_Azero ++;
 					Physical_Lba_offset = GetPhysicalLBA(file_pos, offset_mirror,MFTZero_Lba,fileName[current_filepos+1],phy_to_logi,next_Azero);
@@ -450,7 +454,7 @@ int TForm1::GetPhysicalLBA(int filepos, int offset_temp, int MFTZero_Lba, char f
 						}
 					}
 					//找到索引项对应
-					if (strcmp(fileNameIndx,fileName)==0) {
+					if (strncmp(fileNameIndx,fileName,fileNameLength)==0) {
 						memset(jumpI_range,0,sizeof(jumpI_range));
 						jumpI_range=GetRange(buffer_temp,indx_temp_offset,4);
 						find_file_flag=true;

@@ -93,6 +93,7 @@ object Form1: TForm1
     Width = 105
     Height = 21
     ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    ReadOnly = True
     TabOrder = 5
   end
   object Edit3: TEdit
@@ -101,6 +102,7 @@ object Form1: TForm1
     Width = 115
     Height = 21
     ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    ReadOnly = True
     TabOrder = 6
   end
   object Edit4: TEdit
@@ -109,6 +111,7 @@ object Form1: TForm1
     Width = 106
     Height = 21
     ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    ReadOnly = True
     TabOrder = 7
   end
   object Edit5: TEdit
@@ -117,6 +120,7 @@ object Form1: TForm1
     Width = 115
     Height = 21
     ImeName = #20013#25991'('#31616#20307') - '#25628#29399#25340#38899#36755#20837#27861
+    ReadOnly = True
     TabOrder = 8
   end
 end
