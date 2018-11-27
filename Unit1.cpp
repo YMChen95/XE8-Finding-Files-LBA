@@ -43,6 +43,7 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 	Edit3->Clear();
 	Edit4->Clear();
 	Edit5->Clear();
+	//Partition_Data* pardata[27];
 	indx_name_found = false;
 	//分割文件名（完成）
 	int numOfSlash =0;
@@ -168,7 +169,12 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 		jumpI_range = GetRange(buffer_temp,RunListHead_offset+secondpart+1,firstpart);//从runlist得到外部索引起始簇号
 
 		offset_temp = HextoDec(jumpI_range,secondpart)*8+phy_to_logi;//索引项的cluster #(physical)
-		Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,8);//跳转到外部索引 ->读取
+		memset(jumpI_range,0,sizeof(jumpI_range));
+		jumpI_range = GetRange(buffer_temp,RunListHead_offset+1,secondpart);
+		int cluster_length = HextoDec(jumpI_range,firstpart);
+
+		buffer_temp = new char [4096*cluster_length];
+		Rdsec_SPTI(fileHandle,offset_temp,buffer_temp,8*cluster_length);//跳转到外部索引 ->读取
 		memset(jumpI_range,0,sizeof(jumpI_range));
 
 		int Physical_Lba_offset = 0;
@@ -203,7 +209,7 @@ void __fastcall TForm1::Button1Click(TObject *Sender)
 					}
 				}
 				//找到索引项对应
-				if(indx_temp_offset>=4000){
+				if(indx_temp_offset>=(4096*cluster_length)-96){
 					//Edit1->Text =  "not found in runlist1";
 					//second runlist, third runlist...
 					next_Azero ++;
